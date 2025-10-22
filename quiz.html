@@ -882,8 +882,8 @@
 
     <script>
         // ==================== GLOBAL STATE & REFERENCES ====================
-        let ALL_QUESTIONS = []; // Stores the original list of questions from Firebase
-        let QUESTIONS = [];     // Stores the shuffled questions for the current user
+        let ALL_QUESTIONS = []; // Stores the original, sorted list of questions
+        let QUESTIONS = [];     // Stores the questions for the current user (will be the sorted list)
         let ACCESS_CODES = {};  // Stores access codes as an object for fast lookups
         let QUIZ_STATE = { isActive: false }; // Default to closed until Firebase confirms otherwise
 
@@ -966,7 +966,10 @@
 
         async function loadQuestionsFromFirebase() {
             const data = await loadFromFirebase('questions');
-            if (data) ALL_QUESTIONS = Object.values(data);
+            if (data) {
+                // **THE FIX**: Sort questions by ID immediately after loading
+                ALL_QUESTIONS = Object.values(data).sort((a, b) => a.id - b.id);
+            }
         }
 
         async function loadOrganizationFromFirebase() {
@@ -995,7 +998,10 @@
             });
 
             onValue(ref(database, 'questions'), (snapshot) => {
-                if (snapshot.exists()) ALL_QUESTIONS = Object.values(snapshot.val());
+                if (snapshot.exists()) {
+                    // **THE FIX**: Also sort questions on real-time updates
+                    ALL_QUESTIONS = Object.values(snapshot.val()).sort((a, b) => a.id - b.id);
+                }
             });
 
             onValue(ref(database, 'organization'), (snapshot) => {
@@ -1035,14 +1041,6 @@
         }
 
         // ==================== CORE QUIZ LOGIC ====================
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        }
-        
         async function validateAccessCode(code, name) {
             const codeKey = code.toUpperCase();
             const codeObj = ACCESS_CODES[codeKey];
@@ -1134,7 +1132,8 @@
                 return;
             }
             
-            QUESTIONS = shuffleArray([...ALL_QUESTIONS]);
+            // **THE FIX**: Use the pre-sorted list directly, do NOT shuffle.
+            QUESTIONS = [...ALL_QUESTIONS];
 
             elements.landingScreen.classList.add('hidden');
             elements.questionScreen.classList.remove('hidden');
